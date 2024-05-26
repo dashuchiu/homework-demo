@@ -1,5 +1,5 @@
 <script setup>
-import { onMounted, ref, nextTick } from "vue";
+import { ref, nextTick, onBeforeMount } from "vue";
 const data1 = ref([]);
 const data2 = ref([]);
 const data3 = ref([]);
@@ -11,7 +11,7 @@ const renderTime = ref();
 let startTime;
 
 //獲取data資料
-onMounted(async () => {
+const getData = async() => {
   startTime = performance.now();
   try {
     const [response1, response2, response3] = await Promise.all([
@@ -22,54 +22,56 @@ onMounted(async () => {
     data1.value = await response1.json();
     data2.value = await response2.json();
     data3.value = await response3.json();
-    // 排序 data2 以匹配 data1 的顺序
-    data2.value.sort((a, b) => {
-      return (
-        data1.value.findIndex((item) => item.key === a.key) -
-        data1.value.findIndex((item) => item.key === b.key)
-      );
-    });
-    //取value
-    const result = Object.values(data3.value);
-    data3.value = result;
-    // 排序 data3 以匹配 data1 的顺序
-    data3.value.sort((a, b) => {
-      return (
-        data1.value.findIndex((item) => item.cell4 === a.cell4) -
-        data1.value.findIndex((item) => item.cell4 === b.cell4)
-      );
-    });
 
-    // 合併 data1 和排序後的 data2、data3 到 allData 中
-    allData.value = data1.value.map((item) => {
-      const sortData2Item = data2.value.find(
-        (data2Item) => data2Item.key === item.key
-      );
-      const sortData3Item = data3.value.find(
-        (data3Item) => data3Item.cell4 === item.cell4
-      );
+    // 留下數字
+    const getKeyNumberByReplace = (keyNumber, rule) => {
+      return Number(keyNumber.replace(rule, ''))
+    }
+    // 排序 data2 以匹配 data1的key 順序
+    data2.value.sort((a, b) => getKeyNumberByReplace(a.key, /R/g) - getKeyNumberByReplace(b.key, /R/g))
+    data2.value = data2.value.map(item => {
+    return {
+        cell8: item.cell8
+      }
+    });
+    // 排序 data3 以匹配 data1的cell4 順序
+    const newData3 = Object.values(data3.value).map(item => {
+      return {
+        key: item.cell4,
+        cell9: item.cell9
+      }
+    })
+    newData3.sort((a, b) => getKeyNumberByReplace(a.key, /C4|R/g) - getKeyNumberByReplace(b.key, /C4|R/g))
+    data3.value = newData3
+    data3.value = data3.value.map(item => {
+    return {
+        cell9: item.cell9
+      }
+    });
+    // 合併 data1、data2、data3 到 allData 中
+    allData.value = data1.value.map((item, index) => {
       return {
         ...item,
-        ...(sortData2Item || {}),
-        ...(sortData3Item || {}),
+        ...data2.value[index],
+        ...data3.value[index]
       };
+    })
+    // console.log(allData);
+    // 資料獲取結束後計算渲染時間
+    nextTick(() => {
+      const endTime = performance.now();
+      renderTime.value = Math.round(endTime - startTime);
     });
   } catch (error) {
     console.error("error:", error);
   }
-
-  // 資料獲取結束後計算渲染時間
-  nextTick(() => {
-    const endTime = performance.now();
-    renderTime.value = Math.round(endTime - startTime);
-  });
-});
+}
 
 //點亮星星
 const toggleSelected = (key) => {
   const index = selectedStars.value.indexOf(key);
-  if (index === -1) {
-    selectedStars.value.push(key);
+  if (index < 0) {
+    selectedStars.value = [...selectedStars.value, key];
   } else {
     selectedStars.value.splice(index, 1);
   }
@@ -78,6 +80,9 @@ const toggleSelected = (key) => {
 const toggleSelectedBg = (key) => {
   selectedBg.value = selectedBg.value === key ? null : key;
 };
+onBeforeMount(() => {
+  getData()
+})
 </script>
 
 <template>
@@ -98,7 +103,7 @@ const toggleSelectedBg = (key) => {
           @click="toggleSelectedBg(row.key)"
         >
           <td v-for="(value, key) in row" :key="key">
-            <!-- 檢查是否是 key，是的話就添加 span -->
+            <!-- 檢查標題是否是 key，是的話就添加 star icon -->
             <template v-if="key === 'key'">
               <span
                 class="star"
@@ -107,7 +112,7 @@ const toggleSelectedBg = (key) => {
               ></span
               >{{ value }}
             </template>
-            <!-- 否則直接顯示值 -->
+            <!-- 否則顯示值 -->
             <template v-else>
               {{ value }}
             </template>
