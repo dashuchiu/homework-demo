@@ -42,8 +42,7 @@ const getData = async() => {
       }
     })
     newData3.sort((a, b) => getKeyNumberByReplace(a.key, /C4|R/g) - getKeyNumberByReplace(b.key, /C4|R/g))
-    data3.value = newData3
-    data3.value = data3.value.map(item => {
+    data3.value = newData3.map(item => {
     return {
         cell9: item.cell9
       }
@@ -56,7 +55,6 @@ const getData = async() => {
         ...data3.value[index]
       };
     })
-    // console.log(allData);
     // 資料獲取結束後計算渲染時間
     nextTick(() => {
       const endTime = performance.now();
